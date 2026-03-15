@@ -237,6 +237,9 @@ class FlightUI:
         self._settings_status  = ""
         self._settings_scolor  = LIGHT_GRAY
         self._settings_keys:   list = []
+        self._loc_lat_str      = ""
+        self._loc_lon_str      = ""
+        self._loc_active       = "lat"    # "lat" | "lon"
 
         # Settings — display spinbox values (runtime only, saved on SAVE)
         self._set_rotate_interval = config.get("auto_rotate_interval", 300)
@@ -1187,50 +1190,92 @@ class FlightUI:
         f = self._fonts
         s = self._screen
 
+        # Background + header bar
         pygame.draw.rect(s, _N1, (0, CONTENT_Y, SCREEN_W, CONTENT_H))
         pygame.draw.rect(s, _N2, (0, CONTENT_Y, SCREEN_W, 40))
         if self._icon_font_hdr:
             ic = self._icon_font_hdr.render(ICON["location"], True, _N8)
             s.blit(ic, (14, CONTENT_Y + (40 - ic.get_height()) // 2))
-            s.blit(f["md"].render("Home Address", True, WHITE),
+            s.blit(f["md"].render("Set Home Location", True, WHITE),
                    (14 + ic.get_width() + 6, CONTENT_Y + 10))
         else:
-            s.blit(f["md"].render("📍  Home Address", True, WHITE), (14, CONTENT_Y + 10))
+            s.blit(f["md"].render("Set Home Location", True, WHITE), (14, CONTENT_Y + 10))
         back = f["sm"].render("← Back", True, ACCENT)
         s.blit(back, (SCREEN_W - back.get_width() - 14, CONTENT_Y + 12))
 
-        # Input field
-        field_y = CONTENT_Y + 50
-        pygame.draw.rect(s, _N2, (10, field_y, SCREEN_W - 20, 40), border_radius=6)
-        pygame.draw.rect(s, ACCENT,       (10, field_y, SCREEN_W - 20, 40), 2, border_radius=6)
-        cursor  = "│"
-        txt = f["md"].render(self._settings_address + cursor, True, WHITE)
-        max_w = SCREEN_W - 40
-        if txt.get_width() > max_w:
-            txt = txt.subsurface(pygame.Rect(txt.get_width() - max_w, 0,
-                                             max_w, txt.get_height()))
-        s.blit(txt, (20, field_y + (40 - txt.get_height()) // 2))
+        y = CONTENT_Y + 48
 
+        # Detect My Location button
+        pygame.draw.rect(s, BLUE_ACCENT, (10, y, SCREEN_W - 20, 38), border_radius=6)
+        detect_lbl = f["sm"].render("Detect My Location", True, WHITE)
+        s.blit(detect_lbl, detect_lbl.get_rect(center=(SCREEN_W // 2, y + 19)))
+        self._loc_detect_rect = pygame.Rect(10, y, SCREEN_W - 20, 38)
+        y += 44
+
+        # LAT / LON fields
+        for label, val, field_id in [("LAT", self._loc_lat_str, "lat"),
+                                      ("LON", self._loc_lon_str, "lon")]:
+            active  = self._loc_active == field_id
+            bg      = _N2
+            border  = ACCENT if active else MID_GRAY
+            pygame.draw.rect(s, bg,     (10, y, SCREEN_W - 20, 36), border_radius=6)
+            pygame.draw.rect(s, border, (10, y, SCREEN_W - 20, 36), 2, border_radius=6)
+            lbl_s = f["xs"].render(label, True, LIGHT_GRAY)
+            s.blit(lbl_s, (24, y + (36 - lbl_s.get_height()) // 2))
+            display = val + ("│" if active else "")
+            val_s = f["md"].render(display, True, WHITE)
+            s.blit(val_s, (80, y + (36 - val_s.get_height()) // 2))
+            if field_id == "lat":
+                self._loc_lat_rect = pygame.Rect(10, y, SCREEN_W - 20, 36)
+            else:
+                self._loc_lon_rect = pygame.Rect(10, y, SCREEN_W - 20, 36)
+            y += 40
+
+        # Status message
         if self._settings_status:
             s.blit(f["xs"].render(self._settings_status, True, self._settings_scolor),
-                   (14, field_y + 46))
+                   (14, y))
+            y += 20
 
-        # Keyboard
-        for key in self._settings_keys:
-            action = key["action"]
-            rect   = key["rect"]
-            if action == "⇧" and self._settings_shift:
-                bg = ACCENT
-            elif action in ("⌫", "⇧", "SEARCH"):
-                bg = _N3
-            else:
-                bg = MID_GRAY
-            pygame.draw.rect(s, bg, rect, border_radius=4)
-            lbl_text = key["label"]
-            if action.isalpha() and len(action) == 1:
-                lbl_text = action.upper() if self._settings_shift else action.lower()
-            lbl = f["sm"].render(lbl_text, True, WHITE)
-            s.blit(lbl, lbl.get_rect(center=rect.center))
+        # Numpad  layout:  7 8 9 ⌫ / 4 5 6 - / 1 2 3 . / 0(wide) SAVE(wide)
+        pad_top = y + 4
+        avail_h = BUTTON_Y - pad_top - 4
+        rows = [["7","8","9","⌫"], ["4","5","6","-"],
+                ["1","2","3","."], ["0","0","SAVE","SAVE"]]
+        rh = avail_h // 4
+        cw = (SCREEN_W - 20) // 4
+        self._loc_numpad_rects = {}
+        drawn_save = False
+        drawn_zero = False
+        for ri, row in enumerate(rows):
+            for ci, key in enumerate(row):
+                if key == "SAVE" and drawn_save:
+                    continue
+                if key == "0" and drawn_zero:
+                    continue
+                bx = 10 + ci * cw
+                by = pad_top + ri * rh
+                bw = cw * 2 if key in ("SAVE", "0") else cw
+                bw -= 4
+                bh = rh - 4
+                if key == "SAVE":
+                    bg, fg = GREEN_BTN, WHITE
+                    drawn_save = True
+                elif key == "⌫":
+                    bg, fg = _N3, WHITE
+                elif key in ("-", "."):
+                    bg, fg = _N3, WHITE
+                elif key == "0":
+                    bg, fg = MID_GRAY, WHITE
+                    drawn_zero = True
+                else:
+                    bg, fg = MID_GRAY, WHITE
+                pygame.draw.rect(s, bg, (bx, by, bw, bh), border_radius=6)
+                lbl = f["lg"].render(key, True, fg)
+                s.blit(lbl, lbl.get_rect(center=(bx + bw // 2, by + bh // 2)))
+                self._loc_numpad_rects[key if key not in ("0","SAVE") else
+                                       (key + "_l" if not (drawn_zero or drawn_save) else key)] = \
+                    pygame.Rect(bx, by, bw, bh)
 
     # ------------------------------------------------------------------
     # Settings touch handling
@@ -1245,19 +1290,33 @@ class FlightUI:
                 self._settings_sub    = "main"
                 self._settings_status = ""
                 return
-            # Keyboard keys
-            for key in self._settings_keys:
-                if key["rect"].collidepoint(pos):
-                    self._settings_key_press(key["action"])
-                    return
+            # Detect My Location button
+            if hasattr(self, "_loc_detect_rect") and self._loc_detect_rect.collidepoint(pos):
+                self._detect_location()
+                return
+            # Field selection
+            if hasattr(self, "_loc_lat_rect") and self._loc_lat_rect.collidepoint(pos):
+                self._loc_active = "lat"
+                return
+            if hasattr(self, "_loc_lon_rect") and self._loc_lon_rect.collidepoint(pos):
+                self._loc_active = "lon"
+                return
+            # Numpad keys
+            if hasattr(self, "_loc_numpad_rects"):
+                for key, rect in self._loc_numpad_rects.items():
+                    if rect.collidepoint(pos):
+                        self._loc_numpad_press(key)
+                        return
             return
 
         # Main settings sub-screen
         # Location row tap
         if hasattr(self, "_loc_row_rect") and self._loc_row_rect.collidepoint(pos):
-            self._settings_sub     = "location"
-            self._settings_address = ""
-            self._settings_status  = ""
+            self._settings_sub    = "location"
+            self._settings_status = ""
+            self._loc_lat_str     = f"{self.config.get('lat', 47.6062):.4f}"
+            self._loc_lon_str     = f"{self.config.get('lon', -122.3321):.4f}"
+            self._loc_active      = "lat"
             return
 
         # Spinbox taps
@@ -1324,6 +1383,72 @@ class FlightUI:
             self._settings_scolor = GREEN
         else:
             self._settings_status = "Address not found.  Try a more specific address."
+            self._settings_scolor = RED
+
+    def _loc_numpad_press(self, key):
+        """Handle a numpad key press in the location sub-screen."""
+        # Normalize key names from the rect dict (e.g. "0_l" → "0", "SAVE" stays)
+        if key.endswith("_l"):
+            key = key[:-2]
+        field = "_loc_lat_str" if self._loc_active == "lat" else "_loc_lon_str"
+        current = getattr(self, field)
+        if key == "⌫":
+            setattr(self, field, current[:-1])
+        elif key == "SAVE":
+            self._loc_save()
+        elif key in ("-", "."):
+            if key not in current:
+                setattr(self, field, current + key)
+        elif key.isdigit():
+            if len(current) < 12:
+                setattr(self, field, current + key)
+        # After entering LAT, auto-switch focus to LON
+        if self._loc_active == "lat" and key.isdigit() and len(getattr(self, "_loc_lat_str")) >= 6:
+            pass  # leave focus on lat; user taps LON field to switch
+
+    def _loc_save(self):
+        """Validate and save the lat/lon entered via numpad."""
+        try:
+            lat = float(self._loc_lat_str)
+            lon = float(self._loc_lon_str)
+            if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+                raise ValueError("out of range")
+        except (ValueError, TypeError):
+            self._settings_status = "Invalid coordinates.  Example: 47.6062 / -122.3321"
+            self._settings_scolor = RED
+            return
+        self.config["lat"] = lat
+        self.config["lon"] = lon
+        import config as _cfg
+        _cfg.save_config(self.config)
+        self._map_cache.clear()
+        self._map_last_fetch.clear()
+        self._settings_status = f"✓  Location set to ({lat:.4f}, {lon:.4f})"
+        self._settings_scolor = GREEN
+
+    def _detect_location(self):
+        """Start IP-geolocation in a background thread."""
+        self._settings_status = "Detecting location…"
+        self._settings_scolor = ACCENT
+        threading.Thread(target=self._detect_location_thread, daemon=True).start()
+
+    def _detect_location_thread(self):
+        from api_client import geolocate_by_ip
+        result = geolocate_by_ip()
+        if result:
+            lat, lon, name = result
+            self.config["lat"] = lat
+            self.config["lon"] = lon
+            import config as _cfg
+            _cfg.save_config(self.config)
+            self._map_cache.clear()
+            self._map_last_fetch.clear()
+            self._loc_lat_str = f"{lat:.4f}"
+            self._loc_lon_str = f"{lon:.4f}"
+            self._settings_status = f"✓  {name}  ({lat:.4f}, {lon:.4f})"
+            self._settings_scolor = GREEN
+        else:
+            self._settings_status = "Could not detect location.  Enter coordinates manually."
             self._settings_scolor = RED
 
     def _open_wifi_from_settings(self):

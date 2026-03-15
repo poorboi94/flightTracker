@@ -209,6 +209,32 @@ def get_aircraft_photo_url(icao_hex):
 
 
 # ---------------------------------------------------------------------------
+# IP geolocation — approximate location from public IP (free, no key)
+# ---------------------------------------------------------------------------
+
+def geolocate_by_ip() -> "tuple[float, float, str] | None":
+    """
+    Estimate current location from public IP address via ipapi.co.
+    Returns (lat, lon, display_name) or None on failure.
+    Accuracy is typically within a few miles — sufficient for ADS-B.
+    """
+    try:
+        resp = requests.get("https://ipapi.co/json/", headers=HEADERS, timeout=10)
+        if resp.status_code == 200:
+            data = resp.json()
+            lat  = data.get("latitude")
+            lon  = data.get("longitude")
+            city = data.get("city", "")
+            region = data.get("region", "")
+            if lat and lon:
+                name = f"{city}, {region}" if city else "Detected location"
+                return float(lat), float(lon), name
+    except Exception:
+        pass
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Nominatim — address geocoding (free, no key)
 # ---------------------------------------------------------------------------
 

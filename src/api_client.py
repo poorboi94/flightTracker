@@ -118,20 +118,21 @@ def get_flight_info(callsign, icao_hex):
     if callsign:
         try:
             resp = requests.get(
-                "https://opensky-network.org/api/routes",
-                params={"callsign": callsign},
+                f"https://api.adsbdb.com/v0/callsign/{callsign}",
                 headers=HEADERS,
                 timeout=10,
             )
             if resp.status_code == 200:
-                data = resp.json()
-                route = data.get("route", [])
-                if len(route) >= 2:
-                    result["origin"] = route[0]
-                    result["destination"] = route[-1]
-                op = data.get("operatorIata") or data.get("operator", "")
-                if op:
-                    result["airline"] = op
+                fr = resp.json().get("response", {}).get("flightroute", {})
+                origin = fr.get("origin", {})
+                dest   = fr.get("destination", {})
+                if origin.get("iata_code"):
+                    result["origin"] = origin["iata_code"]
+                if dest.get("iata_code"):
+                    result["destination"] = dest["iata_code"]
+                airline = fr.get("airline", {})
+                if airline.get("name"):
+                    result["airline"] = airline["name"]
         except Exception:
             pass
 

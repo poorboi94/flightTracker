@@ -56,7 +56,7 @@ TARGET_FPS       = 60     # render target — plenty of headroom on Pi 5
 
 def _fetch_metadata(ac: dict, config: dict):
     """Enrich one aircraft with route/photo data, then upsert the result."""
-    callsign = ac.get("callsign") or ""
+    callsign = (ac.get("callsign") or "").strip()
     icao     = ac.get("icao_hex", "")
     info     = get_flight_info(callsign, icao)
     ac.update(info)

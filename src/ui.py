@@ -1079,14 +1079,14 @@ class FlightUI:
         y = self._settings_spinbox(s, f, y, "Display range",
                                    dr_str, "range")
 
-        # ── Section: System Status ──
-        y = self._settings_section_header(s, f, y + 6, "SYSTEM STATUS")
-        y = self._settings_sysinfo(s, f, y)
-
         # ── Section: Advanced ──
-        if y + 50 < BUTTON_Y - 10:
-            y = self._settings_section_header(s, f, y + 6, "ADVANCED")
-            self._settings_advanced_buttons(s, f, y)
+        y = self._settings_section_header(s, f, y + 6, "ADVANCED")
+        y = self._settings_advanced_buttons(s, f, y)
+
+        # ── Section: System Status ──
+        if y + 30 < BUTTON_Y - 10:
+            y = self._settings_section_header(s, f, y + 6, "SYSTEM STATUS")
+            self._settings_sysinfo(s, f, y)
 
         # Status message
         if self._settings_status:
@@ -1181,6 +1181,7 @@ class FlightUI:
         self._adv_wifi_rect    = pygame.Rect(10,  y, 160, 36)
         self._adv_clear_rect   = pygame.Rect(180, y, 200, 36)
         self._adv_export_rect  = pygame.Rect(390, y, 180, 36)
+        return y + 40
 
     def _render_location_input(self):
         f = self._fonts

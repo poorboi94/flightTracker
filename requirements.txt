@@ -1,9 +1,9 @@
-pygame==2.5.2
-pillow==10.2.0
-matplotlib==3.8.2
-requests==2.31.0
-flask==3.0.0
-pytest==7.4.3
-pytest-cov==4.1.0
-staticmap==0.5.7
+pygame>=2.5.2
+pillow>=10.3.0
+matplotlib>=3.8.2
+requests>=2.31.0
+flask>=3.0.0
+pytest>=7.4.3
+pytest-cov>=4.1.0
+staticmap>=0.5.7
 psutil

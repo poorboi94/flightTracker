@@ -17,6 +17,7 @@ DEFAULT_CONFIG = {
     "night_mode_end": 6,            # 6 AM
     "idle_timeout_minutes": 5,
     "max_range_miles": 250,
+    "display_range_miles": 250,
 }
 
 # config.json lives at the project root (one level above src/)

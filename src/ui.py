@@ -105,6 +105,9 @@ PURPLE_BTN  = _N15                # SETTINGS
 # Header bar
 HEADER_BG   = _N1                 # slightly lighter than background
 
+# Distance filter steps (miles); last value = "All" (no filter)
+DIST_STEPS = [5, 10, 25, 50, 100, 150, 200, 250]
+
 # ---------------------------------------------------------------------------
 # Layout constants
 # ---------------------------------------------------------------------------
@@ -238,6 +241,7 @@ class FlightUI:
         # Settings — display spinbox values (runtime only, saved on SAVE)
         self._set_rotate_interval = config.get("auto_rotate_interval", 300)
         self._set_idle_timeout    = config.get("idle_timeout_minutes", 5)
+        self._set_display_range   = config.get("display_range_miles", 250)
 
         # Auto-switch
         self._switch_pending  = None
@@ -369,6 +373,11 @@ class FlightUI:
                     self._settings_sub  = "main"
                     self._settings_address = ""
                     self._settings_status  = ""
+                    if not self._settings_open:
+                        self.config["auto_rotate_interval"] = self._set_rotate_interval
+                        self.config["idle_timeout_minutes"] = self._set_idle_timeout
+                        self.config["display_range_miles"]  = self._set_display_range
+                        import config as _cfg; _cfg.save_config(self.config)
                 break
 
     def _prev(self):
@@ -403,7 +412,8 @@ class FlightUI:
 
     def update(self, live_aircraft, history_flights, notification, summary,
                fast_mode, new_aircraft=None):
-        self.live_aircraft   = live_aircraft
+        dr = self._set_display_range
+        self.live_aircraft   = [ac for ac in live_aircraft if ac.get("distance", 0) <= dr]
         self.history_flights = history_flights
         self._notification   = notification
         self._summary        = summary
@@ -1064,6 +1074,10 @@ class FlightUI:
         idle = self._set_idle_timeout
         y = self._settings_spinbox(s, f, y, "Idle timeout (min)",
                                    f"{idle} min", "idle")
+        dr = self._set_display_range
+        dr_str = "All" if dr >= DIST_STEPS[-1] else f"{dr} mi"
+        y = self._settings_spinbox(s, f, y, "Display range",
+                                   dr_str, "range")
 
         # ── Section: System Status ──
         y = self._settings_section_header(s, f, y + 6, "SYSTEM STATUS")
@@ -1116,6 +1130,9 @@ class FlightUI:
         elif key == "idle":
             self._spin_idle_minus = pygame.Rect(SCREEN_W - 80, y + 10, 28, 24)
             self._spin_idle_plus  = pygame.Rect(SCREEN_W - 36, y + 10, 28, 24)
+        elif key == "range":
+            self._spin_range_minus = pygame.Rect(SCREEN_W - 80, y + 10, 28, 24)
+            self._spin_range_plus  = pygame.Rect(SCREEN_W - 36, y + 10, 28, 24)
 
         return y + rh + 4
 
@@ -1251,6 +1268,12 @@ class FlightUI:
             self._set_idle_timeout = max(1, self._set_idle_timeout - 1)
         elif hasattr(self, "_spin_idle_plus") and self._spin_idle_plus.collidepoint(pos):
             self._set_idle_timeout = min(60, self._set_idle_timeout + 1)
+        elif hasattr(self, "_spin_range_minus") and self._spin_range_minus.collidepoint(pos):
+            idx = DIST_STEPS.index(self._set_display_range) if self._set_display_range in DIST_STEPS else len(DIST_STEPS) - 1
+            self._set_display_range = DIST_STEPS[max(0, idx - 1)]
+        elif hasattr(self, "_spin_range_plus") and self._spin_range_plus.collidepoint(pos):
+            idx = DIST_STEPS.index(self._set_display_range) if self._set_display_range in DIST_STEPS else 0
+            self._set_display_range = DIST_STEPS[min(len(DIST_STEPS) - 1, idx + 1)]
 
         # Advanced button taps
         elif hasattr(self, "_adv_wifi_rect") and self._adv_wifi_rect.collidepoint(pos):

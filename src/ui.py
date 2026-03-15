@@ -1342,7 +1342,7 @@ class FlightUI:
         cx = SCREEN_W // 2
         cy = CONTENT_Y + CONTENT_H // 2
         t1 = f["lg"].render("Listening for aircraft…", True, LIGHT_GRAY)
-        t2 = f["sm"].render("Make sure dump1090 / mock server is running.", True, MID_GRAY)
+        t2 = f["sm"].render("Waiting for ADS-B signal…", True, MID_GRAY)
         self._screen.blit(t1, t1.get_rect(center=(cx, cy - 18)))
         self._screen.blit(t2, t2.get_rect(center=(cx, cy + 18)))
 

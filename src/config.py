@@ -9,7 +9,7 @@ DEFAULT_CONFIG = {
     "lat": 47.6062,
     "lon": -122.3321,
     "location_name": "Seattle, WA",
-    "dump1090_url": "http://localhost:8080",
+    "dump1090_url": "http://localhost/tar1090",
     "auto_rotate_interval": 300,    # 5 minutes (normal mode)
     "fast_mode_interval": 30,       # 30 seconds (fast mode)
     "history_hours": 24,

@@ -13,9 +13,11 @@ Personal ADS-B flight tracker running on Raspberry Pi 5 with a 7" touchscreen.
 
 - **Hostname:** pi@flight-tracker
 - **Local IP:** 10.0.0.11
-- **SSH:** `ssh pi@10.0.0.11`
+- **Tailscale IP:** 100.99.69.36
+- **SSH (local):** `ssh pi@10.0.0.11`
+- **SSH (anywhere):** `ssh pi@100.99.69.36`
 - **tar1090 web UI:** http://10.0.0.11/tar1090
-- **Aircraft JSON:** http://10.0.0.11:8080/data/aircraft.json
+- **Aircraft JSON:** http://10.0.0.11/tar1090/data/aircraft.json
 
 ## Development (Windows)
 

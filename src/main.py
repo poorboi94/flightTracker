@@ -64,8 +64,8 @@ def _fetch_metadata(ac: dict, config: dict, fetched_icao: set, lock: threading.L
     if photo_url:
         ac["photo_url"] = photo_url
     database.upsert_flight(ac)
-    # If we got no route data, remove from fetched set so it retries next poll
-    if not info.get("origin") and not info.get("destination"):
+    # If lookup failed (not a definitive miss), retry next poll
+    if not info.get("origin") and not info.get("destination") and not info.get("route_unknown"):
         with lock:
             fetched_icao.discard(icao)
 

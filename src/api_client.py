@@ -123,16 +123,21 @@ def get_flight_info(callsign, icao_hex):
                 timeout=10,
             )
             if resp.status_code == 200:
-                fr = resp.json().get("response", {}).get("flightroute", {})
-                origin = fr.get("origin", {})
-                dest   = fr.get("destination", {})
-                if origin.get("iata_code"):
-                    result["origin"] = origin["iata_code"]
-                if dest.get("iata_code"):
-                    result["destination"] = dest["iata_code"]
-                airline = fr.get("airline", {})
-                if airline.get("name"):
-                    result["airline"] = airline["name"]
+                body = resp.json().get("response", {})
+                if body == "unknown callsign":
+                    # Definitive miss — cache it so we don't retry
+                    result["route_unknown"] = True
+                else:
+                    fr     = body.get("flightroute", {})
+                    origin = fr.get("origin", {})
+                    dest   = fr.get("destination", {})
+                    if origin.get("iata_code"):
+                        result["origin"] = origin["iata_code"]
+                    if dest.get("iata_code"):
+                        result["destination"] = dest["iata_code"]
+                    airline = fr.get("airline", {})
+                    if airline.get("name"):
+                        result["airline"] = airline["name"]
         except Exception:
             pass
 

@@ -1,0 +1,514 @@
+﻿My Flight Tracker Build
+Development Task List
+Raspberry Pi 5 + Hosyond 7" Touchscreen + FlightAware Pro Stick Plus
+Your Hardware Configuration
+This task list is customized for YOUR specific build:
+
+
+• Raspberry Pi 5 (4GB RAM)
+• Hosyond 7" Touchscreen (800×480, DSI connection)
+• FlightAware Pro Stick Plus (RTL-SDR with filter)
+• FlightAware Indoor Antenna (17cm, two coil, SMA)
+• RasTech 27W Power Supply (5V 5A)
+• 32GB MicroSD Card (Class 10, A1)
+• USB SD Card Reader (for flashing SD card)
+
+
+⚠️  Total project: 72 tasks across 9 phases. Check them off as you complete each one!
+  PHASE 1    Parts Verification & Initial Setup
+
+
+#
+	Task
+	Status
+	Notes / Date
+	1
+	Verify all parts arrived
+Check: Pi 5, Hosyond display, Pro Stick Plus, antenna, power supply, SD card (2-pack), USB SD card reader.
+	TODO
+	 
+	2
+	Inspect parts for damage
+Check touchscreen for cracks, Pi 5 GPIO pins not bent, antenna connector intact.
+	TODO
+	 
+	3
+	Get USB SD card reader (if needed)
+You NEED this to flash the SD card! ~$7-10 on Amazon. Examples: Anker, UGREEN, SanDisk MobileMate.
+	TODO
+	 
+	4
+	Download Raspberry Pi Imager
+From raspberrypi.com/software - Windows, Mac, or Linux version.
+	TODO
+	 
+	5
+	Insert SD card into USB reader
+Put SD card in reader, plug reader into your COMPUTER (not the Pi!). Check write-protect switch is UNLOCKED.
+	TODO
+	 
+	6
+	Flash Raspberry Pi OS (64-bit)
+Pi Imager: Device=Pi 5, OS='Raspberry Pi OS (64-bit)' NOT Lite, Storage=Your SD card (~32GB).
+	TODO
+	 
+	7
+	Configure settings before flashing
+Click 'Edit Settings'. Hostname: 'flight-tracker'. Enable SSH. Username: 'pi'. Set Wi-Fi SSID/password. Set timezone.
+	TODO
+	 
+	8
+	Write to SD card and wait
+Click 'Yes' to write. Takes 5-10 minutes. When done, safely eject SD card from computer.
+	TODO
+	 
+	  PHASE 2    Hardware Assembly & First Boot
+
+
+#
+	Task
+	Status
+	Notes / Date
+	9
+	Connect Hosyond display to Pi 5 (DSI cable)
+Use flat ribbon cable. Gentle with connectors! DSI port is between HDMI ports on Pi.
+	TODO
+	 
+	10
+	Connect touchscreen USB cable
+Small USB cable from display to Pi USB port (for touch input).
+	TODO
+	 
+	11
+	Insert flashed SD card into Pi 5
+Card slot on UNDERSIDE of Pi. Push gently until click.
+	TODO
+	 
+	12
+	Connect power supply and first boot
+DON'T connect RTL-SDR yet. Just Pi + display. Should see rainbow splash → desktop.
+	TODO
+	 
+	13
+	Verify touchscreen works
+Touch screen, open menus. If no touch, check USB cable connection.
+	TODO
+	 
+	14
+	Connect to Wi-Fi (if not auto)
+Top-right corner Wi-Fi icon. Should auto-connect if configured in Pi Imager.
+	TODO
+	 
+	15
+	Run system updates
+Terminal: sudo apt update && sudo apt upgrade -y (takes 10-15 min)
+	TODO
+	 
+	16
+	Reboot after updates
+Terminal: sudo reboot
+	TODO
+	 
+	  PHASE 3    ADS-B Reception Setup
+
+
+#
+	Task
+	Status
+	Notes / Date
+	17
+	Connect antenna to Pro Stick Plus
+Screw SMA connector onto Pro Stick. Hand-tight, don't force.
+	TODO
+	 
+	18
+	Position antenna near window
+Use magnetic base on metal surface or place high near window.
+	TODO
+	 
+	19
+	Plug Pro Stick Plus into Pi USB port
+Use USB 2.0 port (black inside). USB 3.0 (blue) can cause interference.
+	TODO
+	 
+	20
+	Install dump1090-fa
+Terminal: sudo apt install dump1090-fa
+	TODO
+	 
+	21
+	Configure dump1090 auto-start
+Terminal: sudo systemctl enable dump1090-fa && sudo systemctl start dump1090-fa
+	TODO
+	 
+	22
+	Verify ADS-B reception
+Browser: http://localhost:8080 - should see map with aircraft if any nearby.
+	TODO
+	 
+	23
+	Let it run 10 min, check aircraft count
+Should see 1-5+ aircraft even indoors. 0 aircraft? Reposition antenna.
+	TODO
+	 
+	24
+	Optimize antenna placement
+Try different windows, higher is better. Avoid Wi-Fi router proximity.
+	TODO
+	 
+	  PHASE 4    Software Development - Core App
+
+
+4.1 Project Structure Setup
+#
+	Task
+	Status
+	Notes / Date
+	25
+	Create project directory
+mkdir ~/flight-tracker && cd ~/flight-tracker
+	TODO
+	 
+	26
+	Install Python dependencies
+sudo apt install python3-pygame python3-pil python3-matplotlib python3-pip sqlite3
+	TODO
+	 
+	27
+	Install pip packages
+pip3 install requests staticmap --break-system-packages
+	TODO
+	 
+	28
+	Create file structure
+See code snippets. Files: main.py, decoder.py, api_client.py, database.py, ui.py, config.py
+	TODO
+	 
+	29
+	Initialize Git repository (optional)
+git init (if you want version control)
+	TODO
+	 
+	
+
+4.2 Core Components
+#
+	Task
+	Status
+	Notes / Date
+	30
+	Write decoder.py
+Parse http://localhost:8080/data/aircraft.json every 1-2 seconds.
+	TODO
+	 
+	31
+	Write api_client.py - OpenSky
+Free API for routes, aircraft type, airline. 24hr caching.
+	TODO
+	 
+	32
+	Write api_client.py - Photos
+Planespotters API. Cache in ~/flight-tracker/cache/
+	TODO
+	 
+	33
+	Write database.py
+SQLite: flights table with all fields, 24hr auto-purge.
+	TODO
+	 
+	34
+	Write config.py
+Load/save ~/flight-tracker/config.json
+	TODO
+	 
+	35
+	Write notification_manager.py
+Detect new aircraft, manage brief/summary notifications, fast mode.
+	TODO
+	 
+	36
+	Write display_manager.py
+Sleep/wake logic, idle timeout, nighttime scheduling.
+	TODO
+	 
+	37
+	Test each component standalone
+Run each .py file independently before integrating.
+	TODO
+	 
+	  PHASE 5    UI Development - Touchscreen Interface
+
+
+#
+	Task
+	Status
+	Notes / Date
+	38
+	Initialize pygame (800×480 fullscreen)
+Set up pygame, fullscreen mode, no cursor.
+	TODO
+	 
+	39
+	Create render_live_mode()
+Layout: Photo (300×168) + Map (300×168) left, data grid right (4×4). NO scrolling.
+	TODO
+	 
+	40
+	Create render_history_mode()
+Paginated list, 8 flights per page, touch to select.
+	TODO
+	 
+	41
+	Implement touch zones
+Bottom buttons: PREV, AUTO, NEXT, HISTORY. Pygame MOUSEBUTTONDOWN events.
+	TODO
+	 
+	42
+	Create render_map() with staticmap
+OpenStreetMap tiles showing roads/streets. 300×168 pixels. Your location (star) + aircraft + line.
+	TODO
+	 
+	43
+	Add auto-rotate logic
+Cycle through aircraft every 5 min (normal) or 30s (fast mode).
+	TODO
+	 
+	44
+	Implement brief notification popup
+Top-right corner, 3 seconds, 200×80px. Shows new aircraft.
+	TODO
+	 
+	45
+	Implement summary overlay
+Full-screen for 3+ aircraft. Semi-transparent, 5 second countdown.
+	TODO
+	 
+	46
+	Implement fast mode bar
+Orange bar showing queue progress.
+	TODO
+	 
+	47
+	Test UI on actual touchscreen
+Run fullscreen, verify all touch zones, readable from 5 feet.
+	TODO
+	 
+	  PHASE 6    Testing & Quality Assurance
+
+
+Comprehensive testing: unit tests for logic, integration tests for components, desktop mock for development.
+
+
+6.1 Unit Tests
+#
+	Task
+	Status
+	Notes / Date
+	48
+	Set up pytest
+pip3 install pytest pytest-cov --break-system-packages
+	TODO
+	 
+	49
+	Write tests/test_decoder.py
+Test JSON parsing, malformed data, distance calculations.
+	TODO
+	 
+	50
+	Write tests/test_api_client.py
+Mock API responses, test caching, rate limits.
+	TODO
+	 
+	51
+	Write tests/test_database.py
+Test insert/query, 24hr purge, concurrent access.
+	TODO
+	 
+	52
+	Write tests/test_notification_manager.py
+Test single/multiple detection, queue, fast mode.
+	TODO
+	 
+	53
+	Write tests/test_ui.py
+Test touch zones, rendering, mode switching.
+	TODO
+	 
+	54
+	Run coverage report
+pytest --cov=. --cov-report=html - aim for 80%+
+	TODO
+	 
+	
+
+6.2 Desktop Mock Testing
+#
+	Task
+	Status
+	Notes / Date
+	55
+	Create mock_dump1090.py
+Flask server simulating ADS-B data on localhost:8080
+	TODO
+	 
+	56
+	Add --desktop flag to main.py
+python3 main.py --desktop runs windowed on laptop with mouse.
+	TODO
+	 
+	57
+	Test all UI screens in desktop mode
+Live, history, notifications - all without Pi hardware.
+	TODO
+	 
+	58
+	Test with mock data
+Develop 90% of project on laptop before touching Pi!
+	TODO
+	 
+	  PHASE 7    Integration & Final Testing
+
+
+#
+	Task
+	Status
+	Notes / Date
+	59
+	Test dump1090 → decoder → database flow
+Verify ADS-B data flows through pipeline.
+	TODO
+	 
+	60
+	Test API lookup → caching → display
+Verify flight metadata cached correctly.
+	TODO
+	 
+	61
+	Test notification system end-to-end
+Simulate multiple aircraft, verify notifications.
+	TODO
+	 
+	62
+	Test auto-rotation timing
+Verify 5min normal, 30s fast mode works.
+	TODO
+	 
+	63
+	Performance test: 30+ aircraft
+Verify UI maintains 30 FPS with Seattle-level traffic.
+	TODO
+	 
+	64
+	24-hour continuous run test
+Monitor RAM, verify no leaks, DB auto-purge works.
+	TODO
+	 
+	65
+	Network failure test
+Disconnect internet, verify graceful degradation.
+	TODO
+	 
+	66
+	Display sleep/wake test
+Test idle sleep, wake on aircraft, wake on touch.
+	TODO
+	 
+	  PHASE 8    OTA Updates & Remote Management
+
+
+Enable manual updates when user reports bugs. Zero performance impact during normal operation.
+⚠️  Manual updates only: Skip automatic checking. User clicks 'Check for Updates' button when you tell them to. Simple, zero background activity.
+
+
+#
+	Task
+	Status
+	Notes / Date
+	67
+	Create GitHub repository
+Public or private. Use GitHub Releases for versions.
+	TODO
+	 
+	68
+	Write update_manager.py
+Query GitHub API for latest release, compare versions. Manual check only.
+	TODO
+	 
+	69
+	Create web config page
+Flask app with 'Check for Updates' button. Endpoint: /api/check-updates
+	TODO
+	 
+	70
+	Implement apply_update()
+Download update.sh from GitHub release, backup, execute, rollback on fail.
+	TODO
+	 
+	71
+	Create update.sh script
+Script that: stops service, pulls code, installs deps, restarts. Upload to releases.
+	TODO
+	 
+	72
+	Install Tailscale for remote SSH
+curl -fsSL https://tailscale.com/install.sh | sh. FREE VPN for remote access.
+	TODO
+	 
+	73
+	Configure Tailscale auto-login
+sudo systemctl enable tailscaled. Get Tailscale IP for remote SSH.
+	TODO
+	 
+	74
+	Add /api/system-status endpoint
+Remote diagnostics: CPU, memory, logs, aircraft count.
+	TODO
+	 
+	75
+	Test OTA update end-to-end
+Create test release v1.0.1, verify update works, test rollback.
+	TODO
+	 
+	  PHASE 9    Enclosure & Final Assembly
+
+
+#
+	Task
+	Status
+	Notes / Date
+	76
+	Design or find enclosure
+Hosyond 7" + Pi 5 compatible. Check Thingiverse/Printables or design custom.
+	TODO
+	 
+	77
+	3D print enclosure
+PLA fine. Print orientation: back down, supports for ports.
+	TODO
+	 
+	78
+	Assemble in enclosure
+Mount display, Pi, organize cables, secure RTL-SDR.
+	TODO
+	 
+	79
+	Add wall mount
+VESA mount, command strips, or custom bracket.
+	TODO
+	 
+	80
+	Final assembly test
+Power on, verify all accessible (USB, power, SD if needed).
+	TODO
+	 
+	81
+	Mount on wall and enjoy!
+Position for viewing. Antenna near window for best reception.
+	TODO
+	 
+	
+
+⚠️  Total: 81 tasks. Work systematically through each phase. Test before moving forward!
+
+
+Good luck with your build! 🚀✈️

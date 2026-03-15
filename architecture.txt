@@ -1,0 +1,456 @@
+================================================================================
+  PERSONAL FLIGHT TRACKER — FULL ARCHITECTURE DOCUMENT
+================================================================================
+Last updated: 2026-03-08
+
+--------------------------------------------------------------------------------
+  1. DEVICE OVERVIEW — WHAT THIS THING IS
+--------------------------------------------------------------------------------
+
+A standalone, always-on embedded display that automatically tracks aircraft
+flying overhead in real time.  It requires no internet for ADS-B reception —
+aircraft broadcast their own position, speed, and identity on 1090 MHz.
+
+The device sits on a shelf or wall and cycles through every aircraft it can
+hear, showing a photo, the route, live telemetry, and a small map.  No phone
+app, no subscription, no API key required.
+
+
+--------------------------------------------------------------------------------
+  2. PHYSICAL HARDWARE
+--------------------------------------------------------------------------------
+
+Component                   Part
+--------------------------  ------------------------------------------------
+Single-board computer       Raspberry Pi 5 (4 GB RAM)
+Display                     Hosyond 7" DSI touchscreen, 800×480 pixels
+                            Touch input via USB HID (no separate driver)
+SDR receiver                FlightAware Pro Stick Plus (RTL-SDR, USB)
+Antenna                     FlightAware Indoor Antenna (SMA connector)
+Storage                     microSD card (Raspberry Pi OS Lite, 64-bit)
+Power                       USB-C, 5 V / 5 A (official Pi 5 PSU)
+
+The SDR and Pi together form a complete ADS-B receiver station.
+No external server, no cloud dependency for core operation.
+
+
+--------------------------------------------------------------------------------
+  3. SOFTWARE STACK
+--------------------------------------------------------------------------------
+
+Layer               Technology
+------------------  ----------------------------------------------------------
+OS                  Raspberry Pi OS Lite (64-bit, no desktop environment)
+ADS-B decoder       dump1090-fa  (FlightAware fork, runs as a systemd service)
+Application         Python 3.11
+UI framework        pygame 2.x  (draws directly to framebuffer — no X11/Wayland)
+HTTP clients        requests    (OpenSky + Planespotters APIs, photo downloads)
+Image processing    Pillow      (resize aircraft photos to fit the 300×168 slot)
+Map tiles           staticmap   (OpenStreetMap tiles, rendered to a pygame Surface)
+Database            SQLite 3    (WAL mode, single file at data/flights.db)
+Dev/mock server     Flask       (mock_dump1090.py — simulates ADS-B on Windows)
+
+
+--------------------------------------------------------------------------------
+  4. DATA FLOW — FROM RADIO SIGNAL TO SCREEN PIXEL
+--------------------------------------------------------------------------------
+
+Step 1 — RF Reception
+  Aircraft transmits ADS-B squitter on 1090 MHz.
+  FlightAware Pro Stick Plus (connected via USB) receives the raw RF signal.
+
+Step 2 — ADS-B Decoding (dump1090-fa)
+  dump1090-fa decodes Mode-S / ADS-B packets in real time.
+  Exposes a JSON endpoint:  http://localhost:8080/data/aircraft.json
+  Updated continuously; each poll returns all aircraft currently in range.
+  Fields include: hex ICAO, callsign, lat, lon, altitude, ground speed,
+  track, baro_rate, squawk, rssi, nav_heading, nav_altitude, and more.
+
+Step 3 — Poll & Parse (decoder.py, every 2 seconds)
+  DataFetcher thread calls GET /data/aircraft.json with a 2-second timeout.
+  parse_aircraft() converts each raw dict into a clean, typed record:
+    - Replaces the string "ground" with 0 for alt_baro
+    - Derives vert_trend from baro_rate (>200 fpm = climbing, <-200 = descending)
+    - Calculates haversine distance in miles from home lat/lon
+    - Calculates compass bearing from home to aircraft
+    - Passes through metadata fields injected by the mock server (for dev)
+  Aircraft beyond max_range_miles (default 250) are discarded.
+
+Step 4 — Database Upsert (database.py)
+  All parsed aircraft are upserted in a single SQLite transaction
+  (upsert_flights_batch) to minimise fsync overhead.
+  A "visit" is keyed by ICAO hex; if the same aircraft was seen within
+  the past 2 hours it updates the existing row, otherwise inserts a new one.
+  COALESCE is used in all UPDATE statements so that enriched metadata
+  (photo URL, airline name, route) is never overwritten with NULL.
+
+Step 5 — Metadata Enrichment (api_client.py, per-aircraft daemon threads)
+  On first sight of each ICAO hex, a daemon thread fires to fetch:
+    a) OpenSky routes API → origin airport, destination airport, operator IATA
+    b) OpenSky metadata API → aircraft type code, registration, manufacturer
+    c) Planespotters API → best available aircraft photo URL
+  All results are cached to disk for 24 hours (cache/ directory).
+  On subsequent polls the cached data is returned instantly.
+  The enriched aircraft dict is written back to SQLite via upsert_flight().
+
+Step 6 — Live Query (database.py)
+  After upsert, DataFetcher reads back the enriched rows:
+    get_live_flights(max_age_seconds=6)
+  Returns all aircraft seen in the last 6 seconds, sorted by distance.
+  This is what the UI renders.
+
+Step 7 — Notifications (notification_manager.py)
+  Each poll the NotificationManager compares the new ICAO set against
+  known ICAOs to detect brand-new arrivals:
+    1 or 2 new → brief popup card (top-right, 3 seconds each)
+    3 or more new → full-screen summary overlay (5-second countdown)
+    Any new → fast mode active for 60 seconds (rotate every 30s instead of 5min)
+  The first batch on startup is silently absorbed — those planes were
+  already flying when the app launched, not new arrivals.
+
+Step 8 — Render (ui.py, 30 fps on the main thread)
+  Main thread reads shared state from DataFetcher (lock-protected).
+  FlightUI.update() re-anchors the selected aircraft by ICAO hex to prevent
+  list-resort drift (aircraft are sorted by distance each poll).
+  FlightUI.draw() renders:
+    Left column (310 px wide):
+      - Aircraft photo (300×168 px)  — fetched in daemon thread, PIL resize,
+        pygame Surface created on main thread for thread safety
+      - Map (300×168 px) — staticmap OpenStreetMap render with home marker,
+        aircraft marker, and connecting line.  Refreshed every 30 seconds max.
+    Right column (486 px wide):
+      - Callsign + airline name
+      - Route: ORIGIN → DESTINATION
+      - Aircraft type · registration
+      - 8 data cells (2 columns × 4 rows):
+          Altitude · Speed · Distance · Bearing · Track · V/Speed · Trend · Squawk
+    Bottom button row (46 px tall):
+      ◄ PREV | AUTO / ⏸ PAUSED | NEXT ► | HISTORY / LIVE
+  Overlays (when active):
+      Brief popup (top-right 210×70 px, semi-transparent blue)
+      Summary overlay (full-screen semi-transparent with aircraft list)
+      Fast-mode indicator bar (5 px orange bar above button row)
+
+
+--------------------------------------------------------------------------------
+  5. THREADING MODEL
+--------------------------------------------------------------------------------
+
+Thread              Role
+------------------  ----------------------------------------------------------
+Main thread         pygame event loop + all rendering.  Zero I/O.
+                    Reads DataFetcher state once per frame.
+                    Creates pygame Surfaces (thread safety requirement).
+
+DataFetcher         Single daemon thread.  Owns all ADS-B polling and SQLite.
+                    Sleeps for the remainder of each 2-second poll window.
+                    Publishes state (live list, history list, has_new flag)
+                    under a threading.Lock.
+
+_fetch_metadata     One daemon thread per new ICAO hex (fires once per visit).
+                    Calls OpenSky + Planespotters, writes to SQLite.
+                    Does NOT write to the UI directly.
+
+_fetch_photo        One daemon thread per aircraft when its photo slot is first
+                    rendered.  Downloads bytes, PIL-resizes to (300, 168).
+                    Stores raw bytes in _photo_pending dict.
+                    Main thread promotes _photo_pending → pygame Surface in draw().
+
+_fetch_map          One daemon thread per aircraft per MAP_REFRESH_INTERVAL.
+                    Renders staticmap tile via HTTP, creates Surface.
+                    Writes directly to _map_cache (Surface creation is
+                    done here because staticmap's PIL output is converted
+                    immediately; this is safe as long as pygame.display.init()
+                    has completed before the thread starts).
+
+Rule: only the main thread may call pygame display or event functions.
+      All other threads communicate via plain Python dicts/sets (GIL-safe
+      for simple assignments) or the DataFetcher lock.
+
+
+--------------------------------------------------------------------------------
+  6. PHOTO PIPELINE STATE MACHINE
+--------------------------------------------------------------------------------
+
+Each aircraft's photo slot tracks one of four states (keyed by icao_hex):
+
+  NEVER ATTEMPTED
+    → ac.get("photo_url") is None  →  add to _photo_failed  →  show "No Photo"
+    → ac.get("photo_url") has URL  →  add to _photo_fetching, start thread
+
+  _photo_fetching  (download running)
+    → success: PIL resize → store (bytes, w, h) in _photo_pending
+               discard from _photo_fetching
+    → failure: discard from _photo_fetching → add to _photo_failed
+
+  _photo_pending  (bytes ready, waiting for main thread)
+    → main thread in draw(): pygame.image.fromstring()
+                             store Surface in _photo_cache
+                             remove from _photo_pending
+
+  _photo_cache  (Surface ready)
+    → blit to screen every frame
+
+  _photo_failed  (permanent failure for this session)
+    → show "No Photo" placeholder
+
+
+--------------------------------------------------------------------------------
+  7. DATABASE SCHEMA  (data/flights.db)
+--------------------------------------------------------------------------------
+
+Table: flights
+  id              INTEGER PK AUTOINCREMENT
+  icao_hex        TEXT NOT NULL          -- 6-char hex, e.g. "a4f21c"
+  callsign        TEXT                   -- e.g. "AAL1234"
+  lat, lon        REAL                   -- last known position
+  altitude        INTEGER                -- barometric altitude, feet
+  alt_geom        INTEGER                -- geometric (GPS) altitude, feet
+  speed           INTEGER                -- ground speed, knots
+  track           REAL                   -- true track, degrees
+  baro_rate       INTEGER                -- vertical rate, fpm
+  vert_trend      TEXT                   -- "climbing" | "descending" | "level"
+  squawk          TEXT                   -- 4-digit transponder code
+  category        TEXT                   -- ADS-B category, e.g. "A3"
+  tas, ias, mach  REAL                   -- airspeed variants (real HW only)
+  nav_heading     REAL                   -- selected heading, degrees
+  nav_altitude    INTEGER                -- autopilot target altitude, feet
+  rssi            REAL                   -- signal strength dBFS (real HW only)
+  distance        REAL                   -- miles from home
+  bearing         REAL                   -- degrees from home (0 = north)
+  origin          TEXT                   -- IATA airport code, e.g. "SEA"
+  destination     TEXT                   -- IATA airport code, e.g. "JFK"
+  aircraft_type   TEXT                   -- ICAO type code, e.g. "B738"
+  airline         TEXT                   -- operator name or IATA code
+  registration    TEXT                   -- tail number, e.g. "N12345"
+  manufacturer    TEXT                   -- e.g. "Boeing"
+  model           TEXT                   -- e.g. "737-800"
+  photo_url       TEXT                   -- URL to thumbnail (Planespotters or mock)
+  first_seen      REAL                   -- Unix timestamp
+  last_seen       REAL                   -- Unix timestamp (updated every poll)
+
+Indexes: icao_hex, last_seen, first_seen
+Visit window: 7200 seconds (2 hours) — same ICAO within 2h = same visit row
+Auto-purge: records older than 24 hours deleted every hour
+
+
+--------------------------------------------------------------------------------
+  8. EXTERNAL APIS
+--------------------------------------------------------------------------------
+
+Service           URL                                               Key needed
+----------------  ------------------------------------------------  ----------
+OpenSky routes    opensky-network.org/api/routes?callsign=<cs>     No
+OpenSky metadata  opensky-network.org/api/metadata/aircraft/icao/  No
+Planespotters     api.planespotters.net/pub/photos/hex/<HEX>        No
+
+All responses cached to cache/ directory for 24 hours.
+Cache keys are hashed/sanitised filenames.
+Photos (binary) stored as .bin + .bin.meta.json (timestamp) pairs.
+Text responses stored as .json files with {"ts": <epoch>, "data": <payload>}.
+
+On rate-limit or network failure: silently returns {} or None.
+COALESCE in DB upserts means previous enriched data is preserved.
+
+
+--------------------------------------------------------------------------------
+  9. CONFIGURATION  (config.json at project root)
+--------------------------------------------------------------------------------
+
+Key                     Default         Description
+----------------------  --------------  ----------------------------------------
+lat                     47.6062         Home latitude (Seattle)
+lon                     -122.3321       Home longitude
+location_name           "Seattle, WA"   Display label (not used in UI currently)
+dump1090_url            localhost:8080  ADS-B JSON endpoint
+auto_rotate_interval    300             Seconds between auto-advance (normal mode)
+fast_mode_interval      30              Seconds between auto-advance (fast mode)
+history_hours           24              How many hours of history to keep/query
+night_mode_start        23              Hour (24h) when display sleeps at night
+night_mode_end          6               Hour (24h) when display wakes in morning
+idle_timeout_minutes    5               Minutes idle with no aircraft before sleep
+max_range_miles         250             Discard aircraft farther than this
+
+config.json is optional.  All keys fall back to defaults if missing.
+Edit config.json to set your home lat/lon before deploying to the Pi.
+
+
+--------------------------------------------------------------------------------
+  10. DISPLAY SLEEP / WAKE  (display_manager.py)
+--------------------------------------------------------------------------------
+
+Sleep conditions (either triggers sleep):
+  - No user touch for idle_timeout_minutes AND no live aircraft
+  - Current hour is within [night_mode_start, night_mode_end)
+
+Wake conditions:
+  - User touches the screen
+  - A new aircraft appears while sleeping (DataFetcher sets has_new flag;
+    main loop calls disp_mgr.touch())
+
+On Raspberry Pi: sleep/wake call  vcgencmd display_power 0/1  via subprocess.
+On desktop/Windows: hardware calls are skipped; is_sleeping state is still
+  tracked so the main loop stops rendering (avoids wasted CPU on a sleeping Pi).
+
+Pi detection: reads /proc/device-tree/model for "raspberry pi" string,
+  falls back to platform.machine() check for aarch64/armv7l.
+
+
+--------------------------------------------------------------------------------
+  11. MOCK SERVER (src/mock_dump1090.py) — DEVELOPMENT ONLY
+--------------------------------------------------------------------------------
+
+Flask server on localhost:8080 that simulates a real dump1090-fa endpoint.
+Used for all Windows development before the Pi is available.
+
+Startup:  cd src && python mock_dump1090.py
+Endpoint: GET /data/aircraft.json
+
+Generates 5–8 aircraft with:
+  - Random Seattle-area positions (lat ≈ 47.6, lon ≈ -122.3)
+  - Pre-populated metadata: airline, route, aircraft type, registration
+  - Callsigns matching airline prefix (e.g. "AAL1234", "DAL5678")
+  - photo_url: https://picsum.photos/seed/<hex>/300/168  (deterministic per ICAO)
+
+Every poll cycle:
+  - Positions drift randomly (±0.008 deg/poll)
+  - Altitude drifts toward cruise (baro_rate decays 5% per poll)
+  - 8% chance a new aircraft enters range (up to 25 max)
+  - 4% chance an aircraft leaves range (minimum 4 kept)
+
+The mock server pre-populates metadata so the UI shows real-looking content
+without waiting for OpenSky API calls.  The picsum.photos URLs produce
+consistent real photographs for each aircraft (same hex = same image).
+
+
+--------------------------------------------------------------------------------
+  12. FILE STRUCTURE
+--------------------------------------------------------------------------------
+
+flightTracker/
+  src/
+    main.py                 Entry point. --desktop flag for windowed dev mode.
+    config.py               Load/save config.json.  DEFAULT_CONFIG has all keys.
+    decoder.py              Poll dump1090 JSON, parse aircraft, calc distance/bearing.
+    api_client.py           OpenSky (routes+metadata) + Planespotters (photos).
+                            24-hour disk cache for all responses.
+    database.py             SQLite flights.db.  Schema, upsert, query, purge.
+    notification_manager.py Detect new aircraft, brief/summary/fast-mode logic.
+    display_manager.py      Sleep/wake scheduling, Pi vcgencmd calls.
+    ui.py                   pygame 800×480.  Live mode + history mode + overlays.
+    wifi_setup.py           On-screen QWERTY keyboard for Wi-Fi credential entry.
+                            Shown at Pi startup when no network is detected.
+                            Applies credentials via nmcli (Pi OS Bookworm) or
+                            wpa_supplicant.conf (Pi OS Bullseye and earlier).
+    mock_dump1090.py        Flask ADS-B simulator for desktop development.
+    test_connection.py      Smoke test: confirms mock server is reachable.
+  config.json               Runtime config (optional, falls back to defaults).
+  data/
+    flights.db              SQLite database (auto-created on first run).
+  cache/
+    *.json                  API response cache (text).
+    *.bin                   Photo byte cache.
+    *.bin.meta.json         Photo cache timestamps.
+  architecture.txt          This file.
+  requirements.txt          Python dependencies.
+  venv/                     Python virtual environment (local to this machine).
+
+
+--------------------------------------------------------------------------------
+  13. STARTUP SEQUENCE
+--------------------------------------------------------------------------------
+
+On the Raspberry Pi (production):
+  1. Pi boots into Raspberry Pi OS Lite
+  2. systemd starts dump1090-fa → begins decoding ADS-B on the SDR
+  3. systemd starts the flight tracker app:
+       python /home/pi/flightTracker/src/main.py
+  4. config.py loads config.json (home lat/lon, intervals, etc.)
+  5. database.py creates flights.db and schema if they don't exist
+  6. pygame initialises framebuffer at 800×480 fullscreen (no X11)
+  7. DataFetcher thread starts; first poll fires within 2 seconds
+  8. First batch of aircraft are silently absorbed (no notifications)
+  9. Main loop begins rendering at 30 fps
+
+On Windows (development):
+  Terminal 1:  python src/mock_dump1090.py     ← simulates dump1090
+  Terminal 2:  python src/main.py --desktop    ← runs windowed at 800×480
+
+
+--------------------------------------------------------------------------------
+  14. WHAT HAPPENS EACH 2-SECOND POLL CYCLE
+--------------------------------------------------------------------------------
+
+DataFetcher thread:
+  1. GET http://localhost:8080/data/aircraft.json  (2s timeout)
+  2. parse_aircraft() each raw dict → clean typed record, discard no-position
+  3. Filter aircraft beyond max_range_miles
+  4. upsert_flights_batch() — single SQLite transaction for all aircraft
+  5. For each new ICAO hex (first sight this session):
+       spawn daemon thread → OpenSky routes + metadata + Planespotters photo
+       write enriched data back to SQLite
+  6. NotificationManager.update() → detect new arrivals, fire notifications
+  7. get_live_flights(max_age=6s) → enriched rows from DB, sorted by distance
+  8. Every 10 seconds: get_history(24h) → history list refresh
+  9. Every 3600 seconds: purge_old_flights(24h) + clear fetched_icao set
+ 10. Publish (live list, history list, has_new flag) under lock
+
+Main thread (30 fps):
+  1. Drain pygame event queue (touch, keyboard, window close)
+  2. Read latest state from DataFetcher (one short lock window)
+  3. Re-anchor selected aircraft by ICAO hex (list re-sorts by distance)
+  4. Check auto-rotate timer; advance selection if needed
+  5. Promote any _photo_pending bytes → pygame Surface (thread-safe)
+  6. Render full frame: photo + map + data panel + buttons + overlays
+  7. pygame.display.flip()
+
+
+--------------------------------------------------------------------------------
+  15. TOUCH INTERFACE
+--------------------------------------------------------------------------------
+
+The screen has no physical buttons.  All interaction is via touch zones.
+
+Bottom button row (y >= 434, the last 46 pixels):
+  Left quarter (0–199 px):     ◄ PREV    — step to previous aircraft
+  Second quarter (200–399 px): AUTO      — toggle auto-rotate on/off
+  Third quarter (400–599 px):  NEXT ►   — step to next aircraft
+  Right quarter (600–799 px):  HISTORY  — switch to history view
+
+History mode: tapping any row in the list selects that flight for detail.
+
+Keyboard shortcuts (desktop development only):
+  LEFT arrow   — previous aircraft
+  RIGHT arrow  — next aircraft
+  SPACE        — toggle auto-rotate
+  H            — toggle history mode
+  ESC          — quit
+
+
+--------------------------------------------------------------------------------
+  16. PI DEPLOYMENT CHECKLIST  (not yet done — no SD card reader)
+--------------------------------------------------------------------------------
+
+[ ] Flash Raspberry Pi OS Lite (64-bit) to microSD
+[ ] Enable SSH, set hostname, configure Wi-Fi in Raspberry Pi Imager
+[ ] Boot Pi, SSH in
+[ ] sudo apt install rtl-sdr dump1090-fa python3-pip python3-venv git
+[ ] git clone <repo> ~/flightTracker
+[ ] cd ~/flightTracker && python3 -m venv venv && source venv/bin/activate
+[ ] pip install -r requirements.txt
+[ ] Edit config.json: set lat/lon to actual home location
+[ ] Configure dump1090-fa to run on boot (systemd service, already installed)
+[ ] Add systemd service for flight tracker app:
+      ExecStart=/home/pi/flightTracker/venv/bin/python src/main.py
+      Restart=always
+      Environment=SDL_VIDEODRIVER=kmsdrm  (pygame framebuffer mode)
+[ ] Connect RTL-SDR USB dongle + antenna
+[ ] Connect DSI display cable + USB touch cable
+[ ] Test:  python src/test_connection.py  (swap URL to dump1090-fa endpoint)
+[ ] Verify photo, map, and metadata enrichment working
+[ ] Lock down SD card to read-only filesystem (prevent corruption on power loss)
+
+
+================================================================================
+  END OF DOCUMENT
+================================================================================

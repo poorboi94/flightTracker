@@ -1,0 +1,229 @@
+﻿Personal Flight Tracker
+See Every Plane Flying Over Your Home
+February 2025
+Summary
+A display on your wall that shows you every airplane flying overhead. You'll see where they came from, where they're going, how high they're flying, how fast they're moving and optionally a photo of the actual plane.
+
+
+This flight tracker picks up radio signals that airplanes broadcast (it's completely legal and free to receive these). It then looks up extra details about each flight and shows everything on a nice, easy-to-read screen.
+
+
+What You'll See on the Display
+The tracker has a 7-inch color screen (about the size of a small tablet) that shows detailed information about each plane:
+
+
+For Each Flight, You Get:
+* A photo of the actual aircraft
+* Flight number and airline (like "American Airlines 123")
+* What kind of plane it is ("Boeing 737" or "Airbus A320")
+* Where it took off from and where it's heading
+* How high it's flying (in feet)
+* How fast it's going (in miles per hour)
+* How far away it is from you
+* Whether it's climbing, descending, or flying level
+* A simple map showing where the plane is compared to your house
+
+
+Extra Features:
+* Automatically cycles through all nearby planes every few minutes
+* Save the last 24 hours of flights so you can look back at what flew by earlier
+* Four simple buttons to scroll through flights, look at history, or pause on one you find interesting
+* Get an alert when a new plane appears if you're looking at old data
+
+
+How Does It Work? (Basic Idea)
+
+
+1. The Antenna Listens
+Airplanes constantly broadcast their position using something called ADS-B. It's a radio signal on a specific frequency (1090 MHz). A small antenna picks up these signals.
+2. The Computer Decodes
+A tiny computer (called a Raspberry Pi — it's about the size of a credit card) takes those radio signals and figures out what they mean. It extracts the flight number, position, speed, altitude, and more.
+3. The Internet Adds Details
+The computer connects to your home Wi-Fi and looks up extra information online: the airline name, where the flight is going, what kind of plane it is, and a photo of that specific aircraft.
+4. The Display Shows Everything
+All of this information gets displayed on the 7-inch screen in an easy-to-read format. You just plug it in, set your location once, and it does the rest automatically.
+
+
+ No Monthly Fees
+This is completely free to run after you build it. The radio signals are public, and the flight information comes from free databases online. You just need a one-time purchase of the parts.
+
+
+What It Looks Like
+The whole thing is housed in a 3D-printed case about the size of a picture frame. Here's what you'll see:
+
+
+The Front:
+* A 7-inch color screen (Not touchscreen to save costs)
+* Four small buttons on the side for navigating
+The Back:
+* A standard wall mount (called VESA 75mm) so you can use any monitor arm or wall bracket
+* Small holes for the power cable and antenna cable
+* Everything else should be hidden inside the case (Needs 3D printer for this)
+The Setup:
+* The antenna sits near a window (or outside if you want maximum range)
+* A thin cable runs from the antenna to the display
+* One power cable plugs into a normal outlet
+
+
+Once it's on the wall, it looks like a digital picture frame showing live flight data.
+
+
+What You Need to Buy
+Here's the complete list of parts and what each one does. Total cost is around $210, and everything is available online.
+
+
+Part Name
+	What It Does
+	Price
+	Raspberry Pi 4 (4GB)
+	The brain of the system. This tiny computer does all the decoding and runs the display.
+	$45
+	RTL-SDR Dongle (FlightAware ProStick Plus)
+	This plugs into the computer and receives the 1090 MHz radio signals from airplanes. It's like a radio tuner.
+	$25
+	1090 MHz Antenna
+	Picks up the airplane signals. Comes with a magnetic base so you can stick it near a window.
+	$20
+	Antenna Cable (3 feet)
+	Connects the antenna to the radio receiver. Lets you position the antenna for best reception.
+	$8
+	7-inch Display Screen
+	The screen that shows all the flight information. Crystal clear and easy to read from across the room.
+	$55
+	HDMI Cable
+	Connects the computer to the screen.
+	$6
+	Power Supply
+	Plugs into your wall outlet and powers everything.
+	$10
+	32GB Memory Card
+	Stores all the software and 24 hours of flight history.
+	$8
+	4 Small Buttons
+	For navigating through flights and menus. Simple push buttons.
+	$5
+	3D-Printed Case
+	The enclosure that holds everything together and makes it look professional. Can be printed at a library makerspace or ordered online.
+	$12
+	Wall Mount Bracket (optional)
+	Standard bracket for mounting on the wall. Works like a TV mount.
+	$10
+	Misc Wires & Screws
+	Small parts for assembly.
+	$5
+	
+
+	TOTAL
+	$209
+	
+
+Ways to Save Money
+You can reduce the cost by about $20-25 if you use a smaller 5-inch screen instead of the 7-inch one, or if you already have some basic electronics parts lying around (HDMI cable, power supply, etc.).
+
+
+How Far Can It See?
+The range depends on where you put the antenna:
+
+
+Indoor Antenna (near a window):
+* You'll typically see planes within 20-50 miles
+* That's usually 10-30 planes at any given time, depending on your location
+Outdoor Antenna (on the roof or high up):
+* You can see planes 100-200+ miles away
+* Could track 50-100+ planes at once if you're near busy airspace
+* Requires running a cable outside (not hard, but takes a bit more work)
+
+
+The signals travel in straight lines, so higher placement = better reception. Even indoors near a window works great.
+
+
+How Hard Is It to Set Up?
+The setup is designed to be as simple as possible. Here's what you'll need to do:
+
+
+One-Time Setup (About 10-15 Minutes):
+Step 1: Hardware Assembly
+* Plug the screen into the raspberry pi with the HDMI cable
+* Plug the radio receiver into the raspberry pi USB port
+* Connect the antenna to the radio receiver
+* Plug in the power supply
+* Connect the four buttons (they're pre-wired in the case)
+Step 2: Software Setup
+* Turn it on — it creates a temporary Wi-Fi network
+* Connect to that network with your phone or laptop
+* A setup page opens automatically in your web browser
+* Click on a map to set your location (or type in your address)
+* Enter your home Wi-Fi password so it can connect to the internet
+* Click Save
+Step 3: Done!
+* The system restarts and connects to your Wi-Fi
+* Within 30-60 seconds, you'll start seeing planes on the screen
+* Mount it on the wall
+
+
+After this initial setup, you never have to configure anything again.1
+
+
+What's Included When You Get It
+
+
+The Complete Unit:
+* Fully assembled in the 3D-printed case
+* All components installed and tested
+* Software pre-loaded and configured
+* Ready to mount on the wall
+Instructions:
+* Quick start guide 
+* Step-by-step setup instructions (the 10-minute Wi-Fi setup process)
+* Troubleshooting tips
+Accessories:
+* Antenna with magnetic base
+* All necessary cables
+* Wall mounting bracket
+
+
+Literally just plug it in, set your location, and start tracking flights.
+
+
+Day-to-Day Use
+Once it's set up, using it is super simple:
+
+
+Normal Operation:
+* The display automatically shows each plane for a few minutes, then switches to the next one
+* It cycles through all the planes currently in range
+* You don't have to do anything — just look at it when you're curious
+Using the Buttons:
+* UP/DOWN: Manually scroll through the list of planes
+* SELECT: Pause on a specific flight so you can study it
+* MODE: Switch between live flights and the last 24 hours of history
+Looking at History:
+* Press the MODE button to see all flights from the past day
+* Scroll through the list with UP/DOWN
+* Select any flight to see its full details
+* The system keeps everything from the last 24 hours, then automatically deletes older data
+
+
+Maintenance & Upkeep
+This is a set-it-and-forget-it system. Here's what you need to know:
+
+
+Basically None:
+* No monthly fees or subscriptions
+* No software updates to install (it updates automatically if you want)
+* No cleaning or maintenance required
+* Just leave it running 24/7
+Power Usage:
+* Uses about 10-15 watts (similar to an LED light bulb)
+* Costs roughly $1-2 per month in electricity
+If Something Goes Wrong:
+* Restart it by unplugging and plugging back in (fixes 99% of issues)
+* If the Wi-Fi changes, just connect to it like the first time and update the password
+* If planes stop showing up, check that the antenna hasn't fallen down
+
+
+Final Thoughts
+This flight tracker gives you a window into the constant river of air traffic passing overhead. It's easy to set up, cheap to run, and endlessly fascinating to watch.
+
+
+For about $200 in parts, you get a decent looking display that shows real-time information about every plane within dozens of miles. No monthly fees, no complicated setup, no technical expertise required.

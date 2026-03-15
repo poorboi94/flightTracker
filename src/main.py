@@ -54,7 +54,7 @@ TARGET_FPS       = 60     # render target — plenty of headroom on Pi 5
 # Metadata fetcher (one daemon thread per new aircraft)
 # ---------------------------------------------------------------------------
 
-def _fetch_metadata(ac: dict, config: dict):
+def _fetch_metadata(ac: dict, config: dict, fetched_icao: set, lock: threading.Lock):
     """Enrich one aircraft with route/photo data, then upsert the result."""
     callsign = (ac.get("callsign") or "").strip()
     icao     = ac.get("icao_hex", "")
@@ -64,6 +64,10 @@ def _fetch_metadata(ac: dict, config: dict):
     if photo_url:
         ac["photo_url"] = photo_url
     database.upsert_flight(ac)
+    # If we got no route data, remove from fetched set so it retries next poll
+    if not info.get("origin") and not info.get("destination"):
+        with lock:
+            fetched_icao.discard(icao)
 
 
 # ---------------------------------------------------------------------------
@@ -152,7 +156,7 @@ class DataFetcher(threading.Thread):
                 self._fetched_icao.add(icao)
                 threading.Thread(
                     target=_fetch_metadata,
-                    args=(dict(ac), self._config),
+                    args=(dict(ac), self._config, self._fetched_icao, self._lock),
                     daemon=True,
                 ).start()
 

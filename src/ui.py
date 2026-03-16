@@ -983,6 +983,7 @@ class FlightUI:
                 self.selected_index = icao_list.index(icao)
                 self._selected_icao = icao
         self._switch_pending = None
+        self._last_rotate    = time.time()  # reset so auto-rotate doesn't fire immediately after
 
     def _render_auto_switch_banner(self):
         remaining = max(0.0, self._switch_deadline - time.time())

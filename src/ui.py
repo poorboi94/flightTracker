@@ -134,7 +134,7 @@ MAP_Y                 = BUTTON_Y - LEFT_PAD - MAP_H  # 260
 GRID_INFO_Y           = CONTENT_Y                   # 40  — flight info header starts here
 GRID_INFO_H           = 88                          # flight info section height
 GRID_Y                = GRID_INFO_Y + GRID_INFO_H   # 128 — data grid rows start here
-GRID_ROW_H            = 77                          # 4 rows × 77 = 308 ≈ fills to y=436
+GRID_ROW_H            = 75                          # 4 rows × 75 = 300, leaves LEFT_PAD gap at footer
 GRID_COL_W            = RIGHT_W // 4               # 120 px each column
 
 FAST_BAR_H            = 5
@@ -570,11 +570,11 @@ class FlightUI:
         self._render_flight_info_header(ac)
         self._render_data_grid(ac)
 
-        # Aircraft counter — sits just above the map
+        # Aircraft counter — sits just below the map
         n   = len(self.live_aircraft)
         idx = self.selected_index + 1
         ct  = self._fonts["xs"].render(f"{idx} / {n}", True, LIGHT_GRAY)
-        self._screen.blit(ct, (MAP_X, MAP_Y - ct.get_height() - 4))
+        self._screen.blit(ct, (MAP_X, MAP_Y + MAP_H + 4))
 
     def _render_registration(self, ac):
         reg = ac.get("registration") or ""

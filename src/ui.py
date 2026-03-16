@@ -122,12 +122,13 @@ LEFT_W                = 320
 RIGHT_X               = LEFT_W
 RIGHT_W               = SCREEN_W - LEFT_W            # 480
 
-PHOTO_X, PHOTO_Y      = 10, CONTENT_Y               # 10, 40
+LEFT_PAD              = 8                            # vertical breathing room from header/footer
+PHOTO_X, PHOTO_Y      = 10, CONTENT_Y + LEFT_PAD    # 10, 48
 PHOTO_W, PHOTO_H      = 300, 168
-REG_Y                 = PHOTO_Y + PHOTO_H + 4       # 212
+REG_Y                 = PHOTO_Y + PHOTO_H + 4        # 220
 MAP_X                 = 10
-MAP_Y                 = 234
 MAP_W, MAP_H          = 300, 168
+MAP_Y                 = BUTTON_Y - LEFT_PAD - MAP_H  # 260
 
 GRID_INFO_Y           = CONTENT_Y                   # 40  — flight info header starts here
 GRID_INFO_H           = 88                          # flight info section height

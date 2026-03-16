@@ -24,6 +24,7 @@ jank.
 """
 import argparse
 import os
+import subprocess
 import sys
 import threading
 import time
@@ -210,6 +211,21 @@ def main():
         # "connected" or "skipped" — either way, continue to the main app
 
     config = cfg_module.load_config()
+
+    # In desktop mode, always use the local mock server regardless of what
+    # config.json says, and start it automatically if it isn't already running.
+    if args.desktop:
+        MOCK_URL = "http://localhost:8080"
+        config["dump1090_url"] = MOCK_URL
+        import requests as _req
+        try:
+            _req.get(f"{MOCK_URL}/data/aircraft.json", timeout=1)
+        except Exception:
+            mock_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mock_dump1090.py")
+            subprocess.Popen([sys.executable, mock_path],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            time.sleep(1.5)   # give Flask a moment to bind
+
     database.init_db()
 
     notif_mgr = NotificationManager()

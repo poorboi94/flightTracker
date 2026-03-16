@@ -570,11 +570,11 @@ class FlightUI:
         self._render_flight_info_header(ac)
         self._render_data_grid(ac)
 
-        # Aircraft counter (bottom-left in left column)
+        # Aircraft counter — sits just above the map
         n   = len(self.live_aircraft)
         idx = self.selected_index + 1
         ct  = self._fonts["xs"].render(f"{idx} / {n}", True, LIGHT_GRAY)
-        self._screen.blit(ct, (MAP_X, BUTTON_Y - ct.get_height() - 4))
+        self._screen.blit(ct, (MAP_X, MAP_Y - ct.get_height() - 4))
 
     def _render_registration(self, ac):
         reg = ac.get("registration") or ""

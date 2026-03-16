@@ -31,6 +31,14 @@ python src/mock_dump1090.py
 python src/main.py --desktop
 ```
 
+## Tests
+
+107 unit tests covering decoder, API client, database, and notification manager.
+
+```bash
+python -m pytest tests/ -v
+```
+
 ## Pi Setup
 
 See `my_flight_tracker_tasks_v2.docx.txt` for the full task list.

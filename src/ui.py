@@ -343,13 +343,13 @@ class FlightUI:
             self._switch_pending = None
             return
 
-        # Summary overlay absorbs touches
-        if self._summary:
-            return
-
-        # Button row
+        # Button row always works, even during overlays
         if y >= BUTTON_Y:
             self._handle_button_touch(x)
+            return
+
+        # Summary overlay absorbs content-area touches
+        if self._summary:
             return
 
         # History-mode row tap

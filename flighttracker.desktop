@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Flight Tracker
+Comment=Personal ADS-B flight tracker
+Exec=/home/pi/flightTracker/start.sh
+Icon=/home/pi/flightTracker/src/assets/icon.png
+Terminal=false
+Categories=Utility;

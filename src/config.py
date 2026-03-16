@@ -6,8 +6,8 @@ import json
 import os
 
 DEFAULT_CONFIG = {
-    "lat": 47.6062,
-    "lon": -122.3321,
+    "lat": 47.6541,
+    "lon": -122.35,
     "location_name": "Seattle, WA",
     "dump1090_url": "http://localhost/tar1090",
     "auto_rotate_interval": 300,    # 5 minutes (normal mode)

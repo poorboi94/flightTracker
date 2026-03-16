@@ -36,3 +36,23 @@ python src/main.py --desktop
 See `my_flight_tracker_tasks_v2.docx.txt` for the full task list.
 
 ADS-B decoding is handled by `readsb` (RTL-SDR enabled build from wiedehopf).
+
+### Desktop icon (first time)
+
+After pulling the repo on the Pi, run these once to generate the airplane icon and add a launcher to the desktop:
+
+```bash
+cd ~/flightTracker && git pull
+python src/assets/create_icon.py
+cp flighttracker.desktop ~/Desktop/
+chmod +x ~/Desktop/flighttracker.desktop
+```
+
+### Update app
+
+```bash
+ssh pi@100.99.69.36
+cd ~/flightTracker && git pull
+```
+
+Then reboot or re-launch via the desktop icon.

@@ -47,6 +47,7 @@ ICON = {
     "wifi":      "\ue63e",   # wifi
     "delete":    "\ue872",   # delete
     "download":  "\uf090",   # file_download
+    "power":     "\ue8ac",   # power_settings_new
 }
 
 try:
@@ -1162,9 +1163,10 @@ class FlightUI:
         return y
 
     def _settings_advanced_buttons(self, s, f, y):
-        btns = [("wifi",     "WI-FI",         BLUE_ACCENT,  10,  160),
-                ("delete",   "CLEAR HISTORY", RED,          180,  200),
-                ("download", "EXPORT CSV",    GREEN_BTN,    390,  180)]
+        btns = [("wifi",     "WI-FI",         BLUE_ACCENT,  10,  150),
+                ("delete",   "CLEAR HISTORY", RED,          170,  190),
+                ("download", "EXPORT CSV",    GREEN_BTN,    370,  170),
+                ("power",    "EXIT",          RED,          550,  170)]
         for icon_key, label, color, bx, bw in btns:
             pygame.draw.rect(s, color, (bx, y, bw, 36), border_radius=6)
             cx = bx + bw // 2
@@ -1183,9 +1185,10 @@ class FlightUI:
                 s.blit(lbl, lbl.get_rect(center=(cx, cy)))
 
         # Register tap zones
-        self._adv_wifi_rect    = pygame.Rect(10,  y, 160, 36)
-        self._adv_clear_rect   = pygame.Rect(180, y, 200, 36)
-        self._adv_export_rect  = pygame.Rect(390, y, 180, 36)
+        self._adv_wifi_rect    = pygame.Rect(10,  y, 150, 36)
+        self._adv_clear_rect   = pygame.Rect(170, y, 190, 36)
+        self._adv_export_rect  = pygame.Rect(370, y, 170, 36)
+        self._adv_exit_rect    = pygame.Rect(550, y, 170, 36)
         return y + 40
 
     def _render_location_input(self):
@@ -1344,6 +1347,9 @@ class FlightUI:
             self._clear_history()
         elif hasattr(self, "_adv_export_rect") and self._adv_export_rect.collidepoint(pos):
             self._export_csv()
+        elif hasattr(self, "_adv_exit_rect") and self._adv_exit_rect.collidepoint(pos):
+            pygame.quit()
+            import sys; sys.exit(0)
 
     def _settings_key_press(self, action):
         if action == "⌫":

@@ -231,8 +231,6 @@ def main():
     notif_mgr = NotificationManager()
     disp_mgr  = DisplayManager(
         idle_timeout_minutes = config.get("idle_timeout_minutes", 5),
-        night_start          = config.get("night_mode_start", 23),
-        night_end            = config.get("night_mode_end", 6),
     )
 
     ui = FlightUI(config, desktop=args.desktop)

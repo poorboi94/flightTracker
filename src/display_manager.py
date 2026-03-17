@@ -1,12 +1,10 @@
 """
-Display manager — sleep/wake and nighttime scheduling.
+Display manager — idle sleep/wake logic.
 
-On the Raspberry Pi 5 the display is put to sleep via the vcgencmd utility
-(or xset dpms on an X session).  On a desktop/laptop in development mode
-these calls are skipped but the sleep state is still tracked so the rest of
-the app behaves correctly (e.g. the main loop doesn't render while "asleep").
+On the Raspberry Pi 5 the display is put to sleep via the vcgencmd utility.
+On a desktop/laptop in development mode these calls are skipped but the sleep
+state is still tracked so the rest of the app behaves correctly.
 """
-import datetime
 import platform
 import subprocess
 import time
@@ -27,10 +25,9 @@ class DisplayManager:
     """
     Tracks whether the display should be sleeping and manages hardware calls.
 
-    Sleep triggers:
-      - User idle for longer than idle_timeout_minutes (only when no live
-        aircraft are on screen — aircraft activity resets the idle timer).
-      - Current time falls in the nighttime window [night_start, night_end).
+    Sleep trigger:
+      - User idle for longer than idle_timeout_minutes AND no live aircraft
+        on screen (aircraft activity resets the idle timer).
 
     Wake triggers:
       - touch() is called (button press or screen tap).
@@ -38,19 +35,16 @@ class DisplayManager:
         touch() when notifications arrive).
     """
 
-    def __init__(
-        self,
-        idle_timeout_minutes: int = 5,
-        night_start: int = 23,
-        night_end: int = 6,
-    ):
+    def __init__(self, idle_timeout_minutes: int = 5):
         self.idle_timeout = idle_timeout_minutes * 60
-        self.night_start = night_start
-        self.night_end = night_end
 
         self._last_activity = time.time()
         self._sleeping = False
         self._on_pi = _is_pi()
+
+        # Unconditionally turn the display on at startup so a previous run
+        # that exited while sleeping doesn't leave the screen permanently off.
+        self._wake()
 
     # ------------------------------------------------------------------
     # Public API
@@ -75,7 +69,7 @@ class DisplayManager:
             self._last_activity = now
 
         idle = now - self._last_activity
-        should_sleep = (idle >= self.idle_timeout) or self._is_night()
+        should_sleep = idle >= self.idle_timeout
 
         if should_sleep and not self._sleeping:
             self._sleep()
@@ -90,17 +84,9 @@ class DisplayManager:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _is_night(self) -> bool:
-        hour = datetime.datetime.now().hour
-        if self.night_start > self.night_end:
-            # Crosses midnight  e.g. 23 → 06
-            return hour >= self.night_start or hour < self.night_end
-        return self.night_start <= hour < self.night_end
-
     def _sleep(self):
         self._sleeping = True
         if self._on_pi:
-            # Raspberry Pi: turn off HDMI output
             try:
                 subprocess.run(
                     ["vcgencmd", "display_power", "0"],

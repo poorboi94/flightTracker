@@ -13,8 +13,6 @@ DEFAULT_CONFIG = {
     "auto_rotate_interval": 300,    # 5 minutes (normal mode)
     "fast_mode_interval": 30,       # 30 seconds (fast mode)
     "history_hours": 24,
-    "night_mode_start": 23,         # 11 PM
-    "night_mode_end": 6,            # 6 AM
     "idle_timeout_minutes": 5,
     "max_range_miles": 250,
     "display_range_miles": 250,
